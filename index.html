@@ -1,1 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade Machine</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
 
+      body {
+        background-color: black;
+        font-family: Arial, sans-serif;
+        font-size: 20px;
+        color: orange;
+        margin: 0;
+      }
+
+      /* Header nav: two links close together, centered on the page */
+      .nav {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 28px;
+        padding: 24px 0;
+        background-color: rgba(0, 0, 0, 0.85);
+      }
+
+      .nav a {
+        color: orange;
+        font-size: 20px;
+        font-weight: bold;
+        text-decoration: none;
+      }
+
+      .nav a:hover {
+        color: white;
+      }
+
+      /* Hero section with real arcade machine background photo */
+      .hero {
+        position: relative;
+        height: 70vh;
+        min-height: 400px;
+        background-image:
+          linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)),
+          url("https://images.unsplash.com/photo-1511512578047-dfb367046420?fm=jpg&q=80&w=2000&auto=format&fit=crop");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .hero h1 {
+        font-size: 80px;
+        letter-spacing: 6px;
+        color: orange;
+        text-shadow: 0 0 20px rgba(255, 140, 0, 0.8), 0 0 4px black;
+        margin: 0;
+        text-align: center;
+      }
+
+      .content {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        text-align: center;
+      }
+
+      p {
+        color: orange;
+        font-size: 20px;
+        line-height: 1.5;
+      }
+
+      .gallery {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 0 20px 40px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+      }
+
+      .gallery img {
+        width: 100%;
+        max-width: 300px;
+        display: block;
+        border-radius: 8px;
+      }
+
+      .go-links {
+        text-align: center;
+        padding-bottom: 40px;
+      }
+
+      .go-links a {
+        color: orange;
+        font-size: 20px;
+        text-decoration: none;
+      }
+
+      .go-links a:hover {
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+
+    <header class="nav">
+      <a href="https://bitcoinekasi.com" target="_blank">Bitcoin Ekasi</a>
+      <a href="https://pay.btckasi.com/apps/sf5gbPjWDPWWa2zVRk6cm8Uf6ma/pos" target="_blank">Arcade Machine</a>
+    </header>
+
+    <section class="hero">
+      <h1>NOSTALGIA</h1>
+    </section>
+
+    <section class="content">
+      <p>
+        Remember your old memories, from when you were a kid.
+        The arcade machine is retrofitted with Bitcoin payment —
+        a new way to pay to play a game without using any coins.
+        ¡Gracias!
+      </p>
+    </section>
+
+    <!--
+      Photos below are from Unsplash (unsplash.com/license) — free to use,
+      including commercially, no attribution required. If you'd rather show
+      YOUR actual machine, put a photo in an "images" folder next to this
+      file and swap the src to something like "images/arcade-machine.jpg".
+    -->
+    <section class="gallery">
+      <img src="https://images.unsplash.com/photo-1757444838044-d9dcb1bb3017?fm=jpg&q=70&w=800&auto=format&fit=crop" alt="Vintage arcade machine glowing with neon lights">
+      <img src="https://images.unsplash.com/photo-1534620780923-1ce0db377c3f?fm=jpg&q=70&w=800&auto=format&fit=crop" alt="Row of retro arcade machines in a dark arcade">
+      <img src="https://images.unsplash.com/photo-1498736297812-3a08021f206f?fm=jpg&q=70&w=800&auto=format&fit=crop" alt="Two arcade cabinets side by side glowing with neon">
+    </section>
+
+  </body>
+</html>
