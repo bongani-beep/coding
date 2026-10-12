@@ -1,783 +1,140 @@
-<title>Device Finder</title>
-<style>
-  /* Layout: a two-pane locator — a shared schematic map beside a context panel
-     (device list in dashboard mode, reporting controls in device mode),
-     stacking to one column on phones. Utilitarian information design. */
-  :root{
-    --bg:#f3f5f4; --surface:#ffffff; --surface-2:#eef1f0;
-    --ink:#1b2230; --ink-soft:#5a6472; --line:#dde1e6;
-    --accent:#e27a16; --accent-ink:#ffffff;
-    --live:#1f9d57; --recent:#c98509; --stale:#c0493b; --idle:#8a93a0;
-    --map-land:#e9eaec; --map-water:#a9d3f0; --map-park:#c3e7c8;
-    --map-road:#ffffff; --map-road-case:#d6d9dd; --map-arterial:#fdf3cf; --map-arterial-case:#f1d58b;
-    --map-building:#e1e4e8; --map-coast:#8fbce0; --map-label:#5f6368; --map-label-halo:#eef0f2; --map-street:#8a8f96;
-    --shadow:0 1px 2px rgba(20,28,40,.06),0 6px 20px rgba(20,28,40,.06);
-    --font:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
-  }
-  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-    --bg:#12161c; --surface:#1a1f27; --surface-2:#232a33;
-    --ink:#eef1f4; --ink-soft:#98a2ae; --line:#2c333d;
-    --accent:#f59433; --accent-ink:#1b130a;
-    --live:#36c877; --recent:#edb129; --stale:#e06a56; --idle:#6b7380;
-    --map-land:#222b38; --map-water:#17212e; --map-park:#25392f;
-    --map-road:#38414e; --map-road-case:#2a3542; --map-arterial:#45566a; --map-arterial-case:#2a3542;
-    --map-building:#2a3542; --map-coast:#2c3f52; --map-label:#9aa6b4; --map-label-halo:#18222e; --map-street:#6b7685;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
-    color-scheme:dark;
-  }}
-  :root[data-theme="dark"]{
-    --bg:#12161c; --surface:#1a1f27; --surface-2:#232a33;
-    --ink:#eef1f4; --ink-soft:#98a2ae; --line:#2c333d;
-    --accent:#f59433; --accent-ink:#1b130a;
-    --live:#36c877; --recent:#edb129; --stale:#e06a56; --idle:#6b7380;
-    --map-land:#222b38; --map-water:#17212e; --map-park:#25392f;
-    --map-road:#38414e; --map-road-case:#2a3542; --map-arterial:#45566a; --map-arterial-case:#2a3542;
-    --map-building:#2a3542; --map-coast:#2c3f52; --map-label:#9aa6b4; --map-label-halo:#18222e; --map-street:#6b7685;
-    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
-    color-scheme:dark;
-  }
-
-  *{box-sizing:border-box}
-  body{background:var(--bg);color:var(--ink);font-family:var(--font);
-    font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
-  h1,h2,h3{margin:0;text-wrap:balance}
-  button{font-family:inherit;cursor:pointer}
-  .wrap{max-width:1120px;margin:0 auto;padding-block:0;padding-inline:16px}
-  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-  .label{font-size:11px;font-weight:600;letter-spacing:.07em;
-    text-transform:uppercase;color:var(--ink-soft)}
-
-  /* ---- top bar ---- */
-  .topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
-    background:color-mix(in srgb,var(--surface) 88%,transparent);
-    backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
-  .topbar-in{display:flex;align-items:center;gap:12px;
-    justify-content:space-between;padding:12px 16px;max-width:1120px;margin:0 auto}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
-  .mark{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
-    background:var(--accent);color:var(--accent-ink);flex:none}
-  .mark svg{width:15px;height:15px}
-  .acct{display:flex;align-items:center;gap:10px;min-width:0}
-  .acct .em{font-family:var(--mono);font-size:12px;color:var(--ink-soft);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw}
-  .ghost{background:transparent;border:1px solid var(--line);color:var(--ink);
-    border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600}
-  .ghost:hover{background:var(--surface-2)}
-
-  /* ---- login ---- */
-  .login{min-height:72vh;display:grid;place-items:center;padding:32px 16px}
-  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;
-    box-shadow:var(--shadow);padding:30px;width:100%;max-width:400px}
-  .card h1{font-size:23px;letter-spacing:-.01em}
-  .card .tag{color:var(--ink-soft);margin:10px 0 22px;font-size:14px}
-  .field{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
-  .field input{font-family:var(--mono);font-size:14px;padding:12px 13px;
-    border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
-  .field input:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
-  .btn{background:var(--accent);color:var(--accent-ink);border:none;border-radius:10px;
-    padding:12px 16px;font-weight:700;font-size:14px;width:100%}
-  .btn:hover{filter:brightness(1.05)}
-  .btn:active{transform:translateY(1px)}
-  .err{color:var(--stale);font-size:12.5px;margin:-8px 0 12px;min-height:16px}
-  .fineprint{font-size:12px;color:var(--ink-soft);margin-top:18px;line-height:1.55}
-
-  /* ---- demo strip ---- */
-  .demo{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);
-    border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:14px 0;font-size:12.5px;color:var(--ink-soft)}
-  .demo b{color:var(--ink)}
-  .demo svg{width:16px;height:16px;flex:none;margin-top:1px;color:var(--accent)}
-  .demo button{margin-left:auto;background:none;border:none;color:var(--ink-soft);
-    font-size:16px;line-height:1;padding:0 2px;flex:none}
-
-  /* ---- segmented tabs ---- */
-  .seg{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--line);
-    border-radius:11px;padding:4px;margin:16px 0}
-  .seg button{flex:1;border:none;background:transparent;color:var(--ink-soft);
-    border-radius:8px;padding:9px;font-weight:600;font-size:13.5px;display:flex;
-    gap:7px;align-items:center;justify-content:center}
-  .seg button svg{width:15px;height:15px}
-  .seg button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
-
-  /* ---- main grid ---- */
-  .main{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;padding-bottom:40px;align-items:start}
-  @media (max-width:760px){.main{grid-template-columns:1fr}}
-
-  .mapcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;
-    overflow:hidden;box-shadow:var(--shadow)}
-  .maphd{display:flex;align-items:center;justify-content:space-between;
-    padding:11px 14px;border-bottom:1px solid var(--line);gap:10px}
-  .maphd .hint{font-size:11.5px;color:var(--ink-soft)}
-  .map{display:block;width:100%;aspect-ratio:1000/640;touch-action:none;background:var(--map-land)}
-  .m-water{fill:var(--map-water)}
-  .m-coast{fill:none;stroke:var(--map-coast);stroke-width:2}
-  .m-park{fill:var(--map-park)}
-  .m-bldg{fill:var(--map-building)}
-  .m-rcase{stroke:var(--map-road-case);fill:none;stroke-linecap:round;stroke-linejoin:round}
-  .m-road{stroke:var(--map-road);fill:none;stroke-linecap:round;stroke-linejoin:round}
-  .m-acase{stroke:var(--map-arterial-case);fill:none;stroke-linecap:round;stroke-linejoin:round}
-  .m-art{stroke:var(--map-arterial);fill:none;stroke-linecap:round;stroke-linejoin:round}
-  .m-street{fill:var(--map-street);font-family:var(--font);font-size:12px;font-weight:600;letter-spacing:.02em}
-  .m-lbl{fill:var(--map-label);font-family:var(--font);font-size:13px;font-weight:600;
-    paint-order:stroke;stroke:var(--map-label-halo);stroke-width:3px;stroke-linejoin:round}
-
-  .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;
-    box-shadow:var(--shadow);padding:16px}
-  .panel-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-  .panel-hd h2{font-size:15px}
-  .count{font-size:12px;color:var(--ink-soft)}
-
-  /* ---- device cards ---- */
-  .list{display:flex;flex-direction:column;gap:10px}
-  .dev{border:1px solid var(--line);border-radius:11px;padding:12px;display:flex;
-    gap:11px;align-items:flex-start;background:var(--bg)}
-  .dev.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-  .dot{width:12px;height:12px;border-radius:50%;flex:none;margin-top:3px;
-    border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line)}
-  .dev .body{flex:1;min-width:0}
-  .dev .name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .dev .meta{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:5px;align-items:center}
-  .coord{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft)}
-  .pill{font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
-    padding:2px 8px;border-radius:999px;white-space:nowrap}
-  .pill-live{background:color-mix(in srgb,var(--live) 16%,transparent);color:var(--live)}
-  .pill-recent{background:color-mix(in srgb,var(--recent) 18%,transparent);color:var(--recent)}
-  .pill-stale{background:color-mix(in srgb,var(--stale) 16%,transparent);color:var(--stale)}
-  .pill-idle{background:var(--surface-2);color:var(--idle)}
-  .dev .seen{font-size:12px;color:var(--ink-soft)}
-  .dev .seen b{color:var(--ink);font-weight:600}
-  .gmaps{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;
-    color:var(--accent);text-decoration:none;white-space:nowrap}
-  .gmaps:hover{text-decoration:underline}
-  .gmaps svg{width:13px;height:13px}
-  .gmaps-btn{display:inline-flex;align-items:center;gap:7px;margin-top:12px;background:var(--accent);
-    color:var(--accent-ink);text-decoration:none;font-weight:700;font-size:13.5px;padding:11px 15px;border-radius:10px}
-  .gmaps-btn:hover{filter:brightness(1.05)}
-  .gmaps-btn svg{width:16px;height:16px}
-  .rowbtns{display:flex;gap:6px;flex:none}
-  .icbtn{background:transparent;border:1px solid var(--line);border-radius:8px;
-    width:30px;height:30px;display:grid;place-items:center;color:var(--ink-soft)}
-  .icbtn:hover{background:var(--surface-2);color:var(--ink)}
-  .icbtn svg{width:15px;height:15px}
-
-  .addrow{display:flex;gap:8px;margin-top:14px}
-  .addrow input{flex:1;min-width:0;font-size:13.5px;padding:9px 11px;border:1px solid var(--line);
-    border-radius:9px;background:var(--bg);color:var(--ink)}
-  .addrow input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
-  .addbtn{flex:none;background:var(--ink);color:var(--surface);border:none;border-radius:9px;
-    padding:0 14px;font-weight:600;font-size:13.5px}
-  .empty{text-align:center;color:var(--ink-soft);font-size:13px;padding:22px 8px}
-
-  /* ---- reporter panel ---- */
-  .rep-sel{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
-  .rep-sel select{font-size:14px;padding:10px 11px;border:1px solid var(--line);
-    border-radius:9px;background:var(--bg);color:var(--ink);font-family:inherit}
-  .bignum{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:-.02em;margin:2px 0}
-  .statline{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);margin-top:4px}
-  .beat{width:9px;height:9px;border-radius:50%;background:var(--idle);flex:none}
-  .beat.on{background:var(--live)}
-  .toggle{display:flex;align-items:center;justify-content:space-between;
-    padding:11px 0;border-top:1px solid var(--line)}
-  .toggle .lab{font-size:13.5px}
-  .toggle .sub{font-size:11.5px;color:var(--ink-soft)}
-  .sw{width:42px;height:24px;border-radius:999px;background:var(--surface-2);
-    border:1px solid var(--line);position:relative;flex:none;transition:background .15s}
-  .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
-    background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
-  .sw[aria-checked="true"]{background:var(--accent);border-color:transparent}
-  .sw[aria-checked="true"]::after{transform:translateX(18px)}
-  .repnote{font-size:11.5px;color:var(--ink-soft);line-height:1.55;margin-top:14px;
-    padding-top:12px;border-top:1px solid var(--line)}
-  .repnote b{color:var(--ink)}
-
-  /* ---- device detail ---- */
-  .dev.clickable{cursor:pointer}
-  .dev.clickable:hover{border-color:var(--accent)}
-  .chev{align-self:center;color:var(--idle);flex:none;display:grid;place-items:center}
-  .chev svg{width:17px;height:17px}
-  .backbtn{background:none;border:none;color:var(--ink-soft);font-size:13px;font-weight:600;
-    padding:0 0 12px;cursor:pointer;display:inline-flex;align-items:center;gap:2px}
-  .backbtn:hover{color:var(--ink)}
-  .backbtn svg{width:14px;height:14px}
-  .dt-head{display:flex;gap:11px;align-items:flex-start;margin-bottom:14px}
-  .dt-head .dot{margin-top:5px}
-  .dt-name{font-size:17px;font-weight:700;margin-bottom:6px}
-  .dt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-  .dt-cell{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
-  .dt-val{font-size:15px;font-weight:600;margin-top:4px;font-family:var(--mono);font-variant-numeric:tabular-nums}
-  .dt-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 2px}
-  .dt-actions .gmaps-btn{margin-top:0}
-  .locate-dt{padding:11px 15px;font-size:13.5px}
-
-  /* ---- toast notifications ---- */
-  .toasts{position:fixed;z-index:50;right:16px;top:calc(env(safe-area-inset-top,0px) + 72px);
-    display:flex;flex-direction:column;gap:10px;width:min(340px,calc(100% - 32px));pointer-events:none}
-  @media (max-width:760px){.toasts{left:16px;right:16px;width:auto;top:calc(env(safe-area-inset-top,0px) + 66px)}}
-  .toast{pointer-events:auto;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);
-    border-radius:11px;box-shadow:var(--shadow);padding:11px 12px;display:flex;gap:10px;align-items:flex-start}
-  @media (prefers-reduced-motion:no-preference){.toast{animation:toastin .22s ease-out}
-    @keyframes toastin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}}
-  .toast .ic{width:28px;height:28px;border-radius:7px;background:color-mix(in srgb,var(--accent) 16%,transparent);
-    color:var(--accent);display:grid;place-items:center;flex:none}
-  .toast .ic svg{width:15px;height:15px}
-  .toast .tbody{flex:1;min-width:0}
-  .toast .ttl{font-weight:700;font-size:13px}
-  .toast .tco{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);margin-top:2px;
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .toast .tlink{font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;margin-top:5px;display:inline-block}
-  .toast .tlink:hover{text-decoration:underline}
-  .toast .tx{background:none;border:none;color:var(--ink-soft);font-size:16px;line-height:1;flex:none;padding:0 2px;cursor:pointer}
-
-  /* ---- markers ---- */
-  .mk-acc{opacity:.15}
-  .mk-pin{stroke:#fff;stroke-width:2}
-  .mk-pin.active{cursor:grab}
-  .mk-pin.active:active{cursor:grabbing}
-  .mk-lbl{font-family:var(--font);font-size:14px;font-weight:600;fill:var(--ink);
-    paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round}
-  .mk-faded{opacity:.42}
-  @media (prefers-reduced-motion:no-preference){
-    .halo{animation:pulse 1.9s ease-out infinite}
-    @keyframes pulse{0%{r:8;opacity:.55}70%{r:26;opacity:0}100%{opacity:0}}
-    .flash{animation:flash 1.3s ease-out}
-    @keyframes flash{0%{r:12;opacity:.9}100%{r:44;opacity:0}}
-  }
-</style>
-
-<div class="topbar" id="topbar" hidden>
-  <div class="topbar-in">
-    <div class="brand">
-      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" fill="currentColor"/></svg></span>
-      Device Finder
-    </div>
-    <div class="acct">
-      <span class="em" id="acctEmail"></span>
-      <button class="ghost" id="signout">Sign out</button>
-    </div>
-  </div>
-</div>
-
-<!-- LOGIN -->
-<div class="login" id="loginView">
-  <div class="card">
-    <div class="brand" style="margin-bottom:16px">
-      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" fill="currentColor"/></svg></span>
-    </div>
-    <h1>See where your own devices are</h1>
-    <p class="tag">Each phone or tablet reports its own location to you. Nothing is tracked unless the device is signed in and reporting — so this only works for devices you set up yourself.</p>
-    <form id="loginForm">
-      <div class="field">
-        <label class="label" for="email">Email address</label>
-        <input id="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" />
-      </div>
-      <div class="err" id="loginErr"></div>
-      <button class="btn" type="submit">Continue</button>
-    </form>
-    <p class="fineprint">No password in this prototype — email just identifies your account. The production version adds an SMS code to the linked phone number to confirm it's really you.</p>
-  </div>
-</div>
-
-<!-- APP -->
-<div class="wrap" id="appView" hidden>
-  <div class="demo" id="demoStrip">
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    <div><b>Demo mode.</b> Location is simulated — real browser GPS is blocked inside this preview, so drag the marker or switch on auto-move to see a phone "move". Devices are saved only in this browser (no server yet).</div>
-    <button id="demoClose" aria-label="Dismiss">×</button>
-  </div>
-
-  <div class="seg" role="tablist">
-    <button role="tab" id="tabDash" aria-selected="true">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      My devices
-    </button>
-    <button role="tab" id="tabRep" aria-selected="false">
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2.5" stroke="currentColor" stroke-width="2"/><path d="M11 18h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      This device
-    </button>
-  </div>
-
-  <div class="main">
-    <div class="mapcard">
-      <div class="maphd">
-        <span class="label">Mossel Bay</span>
-        <span class="hint" id="mapHint">Live positions</span>
-      </div>
-      <svg class="map" id="map" viewBox="0 0 1000 640" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Schematic map of device locations">
-        <g id="baseLayer"></g>
-        <g id="markerLayer"></g>
-      </svg>
-    </div>
-
-    <div class="panel" id="panel"></div>
-  </div>
-  <div class="toasts" id="toasts" aria-live="polite"></div>
-</div>
-
-<script>
-(function(){
-  "use strict";
-  var KEY="device_finder_v1";
-  var VB={w:1000,h:640};
-  var BOX={latN:-34.1700,latS:-34.1900,lngW:22.1300,lngE:22.1600};
-  var COLORS=["#2b9ea6","#7b5bd6","#d64f93","#3b74d6","#4a9e3b","#d6823b"];
-
-  // ---------- storage ----------
-  function safeGet(){try{return JSON.parse(localStorage.getItem(KEY))||null}catch(e){return null}}
-  function safeSet(o){try{localStorage.setItem(KEY,JSON.stringify(o))}catch(e){}}
-  var store=safeGet()||{current:null,accounts:{}};
-
-  // ---------- geo <-> svg ----------
-  function geoToSvg(lat,lng){
-    return {x:((lng-BOX.lngW)/(BOX.lngE-BOX.lngW))*VB.w,
-            y:((lat-BOX.latN)/(BOX.latS-BOX.latN))*VB.h};
-  }
-  function svgToGeo(x,y){
-    return {lat:BOX.latN+(y/VB.h)*(BOX.latS-BOX.latN),
-            lng:BOX.lngW+(x/VB.w)*(BOX.lngE-BOX.lngW)};
-  }
-  function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
-  function coordStr(d){return d.lat.toFixed(5)+", "+d.lng.toFixed(5)}
-  function gmapsUrl(d){return "https://www.google.com/maps/search/?api=1&query="+d.lat.toFixed(6)+","+d.lng.toFixed(6)}
-  var MAPICON='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" fill="currentColor"/></svg>';
-  var CHEV='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  var CHEVL='<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 6l-6 6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-
-  // ---------- time / freshness ----------
-  function freshness(ts){
-    if(!ts) return {label:"Never",cls:"idle",key:"never"};
-    var d=Date.now()-ts;
-    if(d<30000) return {label:"Live",cls:"live",key:"live"};
-    if(d<300000) return {label:"Recent",cls:"recent",key:"recent"};
-    return {label:"Stale",cls:"stale",key:"stale"};
-  }
-  function relTime(ts){
-    if(!ts) return "—";
-    var s=Math.max(0,Math.floor((Date.now()-ts)/1000));
-    if(s<5) return "just now";
-    if(s<60) return s+"s ago";
-    var m=Math.floor(s/60); if(m<60) return m+"m ago";
-    var h=Math.floor(m/60); if(h<24) return h+"h ago";
-    return Math.floor(h/24)+"d ago";
-  }
-
-  // ---------- account model ----------
-  function acct(){return store.accounts[store.current]}
-  function seed(){
-    var a={seeded:true,activeId:null,devices:[
-      {id:uid(),name:"My phone (example)",color:COLORS[0],lat:-34.18000,lng:22.14500,lastReport:Date.now()-9000,battery:72},
-      {id:uid(),name:"Shop tablet (example)",color:COLORS[1],lat:-34.18313,lng:22.13705,lastReport:Date.now()-2460000,battery:96}
-    ]};
-    a.activeId=a.devices[0].id;
-    return a;
-  }
-  function uid(){return "d"+Math.random().toString(36).slice(2,9)}
-  function devices(){return acct()?acct().devices:[]}
-  function deviceById(id){return devices().filter(function(d){return d.id===id})[0]}
-  function activeDevice(){var a=acct();return a?deviceById(a.activeId):null}
-
-  // ---------- state ----------
-  var view="login";       // login | app
-  var tab="dash";         // dash | rep
-  var reporting=false, autoMove=false, lastReportAt=0;
-  var dragId=null;
-  var detailId=null, watchOn=false, watchLastMove=0, watchLastNotify=0;
-
-  // ---------- base map ----------
-  function buildBase(){
-    var g=document.getElementById("baseLayer");
-    var s="";
-    // parks (green)
-    s+='<ellipse class="m-park" cx="330" cy="205" rx="92" ry="60"/>';
-    s+='<ellipse class="m-park" cx="135" cy="470" rx="72" ry="48"/>';
-    // buildings
-    var bldgs=[[55,120,72,55],[150,118,58,40],[395,118,82,60],[560,178,70,52],[640,250,62,46],
-               [295,330,72,50],[430,350,60,46],[700,300,72,50],[180,250,60,40],[515,88,72,46]];
-    bldgs.forEach(function(b){s+='<rect class="m-bldg" x="'+b[0]+'" y="'+b[1]+'" width="'+b[2]+'" height="'+b[3]+'" rx="3"/>';});
-    // minor roads (casing then surface)
-    var minor=["M0,150 L1000,150","M0,290 L1000,290","M0,430 L720,430","M230,0 L230,560","M500,0 L500,560","M770,0 L770,430"];
-    minor.forEach(function(p){s+='<path class="m-rcase" d="'+p+'" stroke-width="15"/>';});
-    minor.forEach(function(p){s+='<path class="m-road" d="'+p+'" stroke-width="9"/>';});
-    // arterial — Louis Fourie Rd
-    var art="M0,600 L1000,90";
-    s+='<path class="m-acase" d="'+art+'" stroke-width="24"/>';
-    s+='<path class="m-art" d="'+art+'" stroke-width="16"/>';
-    // sea (drawn over the roads so they end at the coastline)
-    var coast="M0,600 Q260,575 470,520 Q700,460 1000,360";
-    s+='<path class="m-water" d="'+coast+' L1000,640 L0,640 Z"/>';
-    s+='<path class="m-coast" d="'+coast+'"/>';
-    // street names
-    s+='<text class="m-street" x="330" y="146" text-anchor="middle">Marsh St</text>';
-    s+='<text class="m-street" x="505" y="205" transform="rotate(90 505 205)" text-anchor="middle">Church St</text>';
-    s+='<text class="m-street" x="400" y="384" transform="rotate(-27 400 384)" text-anchor="middle">Louis Fourie Rd</text>';
-    s+='<text class="m-street" x="640" y="282" text-anchor="middle">Montagu St</text>';
-    // sea label
-    s+='<text class="m-lbl" x="770" y="595" text-anchor="middle" font-style="italic">Mossel Bay</text>';
-    // points of interest (Google-style coloured dots)
-    var lms=[
-      [455,250,"Bay Mall","#e08a2e"],
-      [200,360,"Dias Museum","#9c6ade"],
-      [560,500,"Point Beach","#e0b02e"],
-      [150,150,"Taxi rank","#3f9e4a"],
-      [775,435,"Harbour","#3b74d6"]
-    ];
-    lms.forEach(function(l){
-      s+='<circle cx="'+l[0]+'" cy="'+l[1]+'" r="5.5" fill="'+l[3]+'" stroke="#fff" stroke-width="1.6"/>';
-      var anchor=l[0]>820?"end":"start"; var tx=anchor==="end"?l[0]-9:l[0]+9;
-      s+='<text class="m-lbl" x="'+tx+'" y="'+(l[1]+4)+'" text-anchor="'+anchor+'">'+l[2]+'</text>';
-    });
-    g.innerHTML=s;
-  }
-
-  // ---------- markers ----------
-  function renderMarkers(){
-    var layer=document.getElementById("markerLayer");
-    var list=devices(), active=activeDevice(), s="";
-    var PIN='M0,0 C -6,-12 -11,-16 -11,-26 A 11,11 0 1 1 11,-26 C 11,-16 6,-12 0,0 Z';
-    var emphId=(tab==="rep")?(active?active.id:null):(detailId||null);
-    list.forEach(function(d){
-      var p=geoToSvg(d.lat,d.lng);
-      var isRepActive=(tab==="rep" && active && d.id===active.id);
-      var isEmph=(emphId && d.id===emphId);
-      var f=freshness(d.lastReport);
-      var faded=(emphId && !isEmph)?" mk-faded":"";
-      var col=isRepActive?"var(--accent)":d.color;
-      s+='<g data-marker="'+d.id+'" class="'+faded+'" style="transform:translate('+p.x+'px,'+p.y+'px)">';
-      // accuracy halo around the emphasised device
-      if(isEmph) s+='<circle class="mk-acc" r="38" fill="'+col+'"/>';
-      // live pulse from the location point
-      if(f.key==="live") s+='<circle class="halo" fill="none" stroke="'+col+'" stroke-width="2" r="8"/>';
-      // teardrop pin, tip anchored at the location
-      s+='<path class="mk-pin'+(isRepActive?" active":"")+'" data-dot="'+d.id+'" d="'+PIN+'" fill="'+col+'" opacity="'+(f.key==="stale"?.6:1)+'"/>';
-      s+='<circle cx="0" cy="-26" r="4.3" fill="#fff"/>';
-      s+='<text class="mk-lbl" x="15" y="-22">'+escapeHtml(d.name.replace(/ \(example\)$/,""))+'</text>';
-      s+='</g>';
-    });
-    layer.innerHTML=s;
-    if(tab==="rep"){
-      var pin=layer.querySelector('.mk-pin.active');
-      if(pin) pin.addEventListener("pointerdown",startDrag);
-    }
-  }
-
-  // ---------- drag ----------
-  function clientToSvg(e){
-    var svg=document.getElementById("map");
-    var pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
-    var m=svg.getScreenCTM(); if(!m) return null;
-    return pt.matrixTransform(m.inverse());
-  }
-  function startDrag(e){
-    var d=activeDevice(); if(!d) return;
-    dragId=d.id; e.preventDefault();
-    window.addEventListener("pointermove",onDrag);
-    window.addEventListener("pointerup",endDrag);
-  }
-  function onDrag(e){
-    var d=deviceById(dragId); if(!d) return;
-    var loc=clientToSvg(e); if(!loc) return;
-    var g=svgToGeo(clamp(loc.x,16,984),clamp(loc.y,16,624));
-    d.lat=g.lat; d.lng=g.lng;
-    renderMarkers(); renderReporter();
-  }
-  function endDrag(){
-    var d=deviceById(dragId);
-    window.removeEventListener("pointermove",onDrag);
-    window.removeEventListener("pointerup",endDrag);
-    dragId=null;
-    if(d){ d.lastReport=Date.now(); lastReportAt=Date.now(); save(); renderMarkers(); renderReporter(); }
-  }
-
-  // ---------- panels ----------
-  function escapeHtml(s){return (s||"").replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
-
-  function renderDash(){
-    var list=devices();
-    var html='<div class="panel-hd"><h2>Your devices</h2><span class="count">'+list.length+' registered</span></div>';
-    if(!list.length){
-      html+='<div class="empty">No devices yet. Add one below, then open <b>This device</b> on that phone to start reporting.</div>';
-    }else{
-      html+='<div class="list">';
-      list.forEach(function(d){
-        var f=freshness(d.lastReport);
-        html+='<div class="dev clickable" data-card="'+d.id+'">'+
-          '<span class="dot" style="background:'+d.color+'"></span>'+
-          '<div class="body">'+
-            '<div class="name">'+escapeHtml(d.name)+'</div>'+
-            '<div class="meta"><span class="pill pill-'+f.cls+'" data-pill="'+d.id+'">'+f.label+'</span>'+
-              '<span class="seen">seen <b data-rel="'+d.id+'">'+relTime(d.lastReport)+'</b></span>'+
-              '<span class="coord">'+(d.lastReport?coordStr(d):"no fix yet")+'</span>'+
-              (d.lastReport?'<a class="gmaps" href="'+gmapsUrl(d)+'" target="_blank" rel="noopener">'+MAPICON+'Google Maps</a>':'')+
-            '</div>'+
-          '</div>'+
-          '<div class="rowbtns">'+
-            '<button class="icbtn" data-locate="'+d.id+'" title="Locate on map" aria-label="Locate '+escapeHtml(d.name)+'"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>'+
-            '<button class="icbtn" data-del="'+d.id+'" title="Remove device" aria-label="Remove '+escapeHtml(d.name)+'"><svg viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M8 7l1 12h6l1-12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
-          '</div><span class="chev" aria-hidden="true">'+CHEV+'</span></div>';
-      });
-      html+='</div>';
-    }
-    html+='<form class="addrow" id="addForm"><input id="addName" placeholder="New device name, e.g. Thabo&#39;s phone" maxlength="40" /><button class="addbtn" type="submit">Add</button></form>';
-    document.getElementById("panel").innerHTML=html;
-    document.getElementById("addForm").addEventListener("submit",onAdd);
-    panelDelegate();
-  }
-
-  function renderReporter(){
-    var a=acct(); var list=devices();
-    var d=activeDevice();
-    var opts=list.map(function(x){return '<option value="'+x.id+'"'+(d&&x.id===d.id?" selected":"")+'>'+escapeHtml(x.name)+'</option>'}).join("");
-    var html='<div class="panel-hd"><h2>This device</h2></div>';
-    html+='<div class="rep-sel"><label class="label" for="repSel">Reporting as</label>'+
-      (list.length?'<select id="repSel">'+opts+'</select>':'<div class="empty" style="padding:12px 0">Add a device first, from <b>My devices</b>.</div>')+'</div>';
-    if(d){
-      var f=freshness(d.lastReport);
-      html+='<span class="label">Current position</span>'+
-        '<div class="bignum">'+coordStr(d)+'</div>'+
-        '<a class="gmaps-btn" data-gmaps="'+d.id+'" href="'+gmapsUrl(d)+'" target="_blank" rel="noopener">'+MAPICON+'Open in Google Maps</a>'+
-        '<div class="statline" style="margin-top:12px"><span class="beat'+(reporting?' on':'')+'"></span>'+
-          (reporting?'Reporting every 4s · sent <b data-rel="'+d.id+'" style="color:var(--ink);font-weight:600;margin:0 3px">'+relTime(d.lastReport)+'</b>':'Paused — not sending location')+
-        '</div>';
-      html+='<div class="toggle"><div><div class="lab">Reporting</div><div class="sub">Send this device\'s position to your account</div></div>'+
-        '<div class="sw" role="switch" id="swRep" tabindex="0" aria-checked="'+reporting+'"></div></div>';
-      html+='<div class="toggle"><div><div class="lab">Auto-move</div><div class="sub">Simulate walking around the area</div></div>'+
-        '<div class="sw" role="switch" id="swMove" tabindex="0" aria-checked="'+autoMove+'"></div></div>';
-      html+='<div class="repnote"><b>How this works in the real app:</b> this screen reads the phone\'s actual GPS and sends it while reporting is on. In this demo GPS is simulated — <b>drag the orange marker</b> on the map, or turn on auto-move.</div>';
-    }
-    document.getElementById("panel").innerHTML=html;
-    var sel=document.getElementById("repSel");
-    if(sel) sel.addEventListener("change",function(){a.activeId=this.value;save();renderAll()});
-    var sr=document.getElementById("swRep");
-    if(sr){sr.addEventListener("click",toggleRep);sr.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();toggleRep()}})}
-    var sm=document.getElementById("swMove");
-    if(sm){sm.addEventListener("click",toggleMove);sm.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();toggleMove()}})}
-  }
-
-  function shortName(d){return d.name.replace(/ \(example\)$/,"")}
-
-  function openDetail(id){
-    detailId=id; watchOn=true; watchLastMove=Date.now(); watchLastNotify=Date.now();
-    var d=deviceById(id); if(d && !d.lastReport) d.lastReport=Date.now();
-    save(); setMapHint(); renderMarkers(); renderDetail();
-    if(d) toastLocation(d,"Located "+shortName(d));
-  }
-  function closeDetail(){ detailId=null; watchOn=false; setMapHint(); renderAll(); }
-  function toggleWatch(){
-    watchOn=!watchOn;
-    if(watchOn){
-      watchLastMove=Date.now(); watchLastNotify=Date.now();
-      var d=deviceById(detailId);
-      if(d){ if(!d.lastReport)d.lastReport=Date.now(); toastLocation(d,"Tracking "+shortName(d)); }
-    }
-    renderMarkers(); renderDetail();
-  }
-
-  function renderDetail(){
-    var d=deviceById(detailId);
-    if(!d){ detailId=null; return renderDash(); }
-    var f=freshness(d.lastReport);
-    var html='<button class="backbtn" id="backBtn">'+CHEVL+'All devices</button>'+
-      '<div class="dt-head"><span class="dot" style="background:'+d.color+'"></span>'+
-        '<div><div class="dt-name">'+escapeHtml(d.name)+'</div>'+
-        '<span class="pill pill-'+f.cls+'" data-pill="'+d.id+'">'+f.label+'</span></div></div>'+
-      '<div class="dt-grid">'+
-        '<div class="dt-cell"><span class="label">Last seen</span><div class="dt-val" data-rel="'+d.id+'">'+relTime(d.lastReport)+'</div></div>'+
-        '<div class="dt-cell"><span class="label">Battery</span><div class="dt-val" data-batt="'+d.id+'">'+(d.battery!=null?Math.round(d.battery)+'%':'—')+'</div></div>'+
-      '</div>'+
-      '<span class="label">Live location</span>'+
-      '<div class="bignum" data-coord="'+d.id+'">'+(d.lastReport?coordStr(d):"no fix yet")+'</div>'+
-      '<div class="dt-actions">'+
-        '<a class="gmaps-btn" data-gmaps="'+d.id+'" href="'+gmapsUrl(d)+'" target="_blank" rel="noopener">'+MAPICON+'Open in Google Maps</a>'+
-        '<button class="ghost locate-dt" data-locate="'+d.id+'">Show on map</button>'+
-      '</div>'+
-      '<div class="toggle"><div><div class="lab">Live tracking &amp; alerts</div>'+
-        '<div class="sub">Refresh the location in real time and notify me of updates</div></div>'+
-        '<div class="sw" role="switch" id="swWatch" tabindex="0" aria-checked="'+watchOn+'"></div></div>'+
-      '<div class="repnote"><b>In the live app:</b> updates arrive as the phone reports its real GPS, and alerts reach you by push or SMS even when this page is closed. Here the live feed and alerts are simulated.</div>';
-    document.getElementById("panel").innerHTML=html;
-    document.getElementById("backBtn").addEventListener("click",closeDetail);
-    var sw=document.getElementById("swWatch");
-    sw.addEventListener("click",toggleWatch);
-    sw.addEventListener("keydown",function(e){if(e.key===" "||e.key==="Enter"){e.preventDefault();toggleWatch()}});
-    panelDelegate();
-  }
-
-  function pushToast(title,coord,href){
-    var wrap=document.getElementById("toasts"); if(!wrap) return;
-    var t=document.createElement("div"); t.className="toast";
-    t.innerHTML='<span class="ic">'+MAPICON+'</span><div class="tbody"><div class="ttl"></div>'+
-      '<div class="tco"></div><a class="tlink" target="_blank" rel="noopener">Open in Google Maps ↗</a>'+
-      '</div><button class="tx" aria-label="Dismiss">×</button>';
-    t.querySelector(".ttl").textContent=title;
-    t.querySelector(".tco").textContent=coord||"";
-    t.querySelector(".tlink").href=href||"#";
-    t.querySelector(".tx").addEventListener("click",function(){t.remove()});
-    wrap.insertBefore(t,wrap.firstChild);
-    while(wrap.children.length>4) wrap.removeChild(wrap.lastChild);
-    setTimeout(function(){ if(t.parentNode) t.remove(); },7000);
-  }
-  function toastLocation(d,title){ pushToast(title, d.lastReport?coordStr(d):"locating…", gmapsUrl(d)); }
-
-  function panelDelegate(){
-    var p=document.getElementById("panel");
-    p.querySelectorAll("[data-locate]").forEach(function(b){b.addEventListener("click",function(){locate(b.getAttribute("data-locate"))})});
-    p.querySelectorAll("[data-del]").forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();delDevice(b.getAttribute("data-del"))})});
-    p.querySelectorAll("[data-card]").forEach(function(c){
-      c.addEventListener("click",function(e){
-        if(e.target.closest(".rowbtns")||e.target.closest("a")) return;
-        openDetail(c.getAttribute("data-card"));
-      });
-    });
-  }
-
-  function toggleRep(){reporting=!reporting; if(reporting){var d=activeDevice();if(d){d.lastReport=Date.now();lastReportAt=Date.now();save()}} renderMarkers(); renderReporter()}
-  function toggleMove(){autoMove=!autoMove; renderReporter()}
-
-  function locate(id){
-    var d=deviceById(id); if(!d) return;
-    var p=geoToSvg(d.lat,d.lng);
-    var layer=document.getElementById("markerLayer");
-    var fl=document.createElementNS("http://www.w3.org/2000/svg","circle");
-    fl.setAttribute("class","flash"); fl.setAttribute("r","12");
-    fl.setAttribute("cx",p.x); fl.setAttribute("cy",p.y);
-    fl.setAttribute("fill","none"); fl.setAttribute("stroke",d.color); fl.setAttribute("stroke-width","3");
-    layer.appendChild(fl); setTimeout(function(){fl.remove()},1400);
-    document.getElementById("map").scrollIntoView({behavior:"smooth",block:"nearest"});
-  }
-  function delDevice(id){
-    var a=acct(); a.devices=a.devices.filter(function(d){return d.id!==id});
-    if(a.activeId===id) a.activeId=a.devices.length?a.devices[0].id:null;
-    save(); renderAll();
-  }
-  function onAdd(e){
-    e.preventDefault();
-    var inp=document.getElementById("addName"); var name=(inp.value||"").trim();
-    if(!name) return;
-    var a=acct(); var c=COLORS[a.devices.length%COLORS.length];
-    var center=svgToGeo(500+(Math.random()*120-60),320+(Math.random()*120-60));
-    var nd={id:uid(),name:name,color:c,lat:center.lat,lng:center.lng,lastReport:null,battery:100};
-    a.devices.push(nd); if(!a.activeId)a.activeId=nd.id; save(); renderAll();
-  }
-
-  // ---------- tick ----------
-  function tick(){
-    if(view!=="app") return;
-    var now=Date.now();
-    if(reporting){
-      var d=activeDevice();
-      if(d && now-lastReportAt>=4000){
-        if(autoMove){
-          var p=geoToSvg(d.lat,d.lng);
-          p.x=clamp(p.x+(Math.random()*2-1)*26,20,980);
-          p.y=clamp(p.y+(Math.random()*2-1)*26,20,620);
-          var g=svgToGeo(p.x,p.y); d.lat=g.lat; d.lng=g.lng;
-        }
-        d.lastReport=now; if(d.battery>6)d.battery=Math.round((d.battery-0.4)*10)/10;
-        lastReportAt=now; save();
-        if(tab==="rep"){renderMarkers();renderReporter();} else {renderMarkers();}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade Machine</title>
+    <style>
+      * {
+        box-sizing: border-box;
       }
-    }
-    if(tab==="dash" && detailId && watchOn){
-      var wd=deviceById(detailId);
-      if(wd){
-        if(now-watchLastMove>=4000){
-          var mp=geoToSvg(wd.lat,wd.lng);
-          mp.x=clamp(mp.x+(Math.random()*2-1)*16,20,980);
-          mp.y=clamp(mp.y+(Math.random()*2-1)*16,20,620);
-          var mg=svgToGeo(mp.x,mp.y); wd.lat=mg.lat; wd.lng=mg.lng;
-          wd.lastReport=now; if(wd.battery>6)wd.battery=Math.round((wd.battery-0.2)*10)/10;
-          watchLastMove=now; save(); renderMarkers();
-        }
-        if(now-watchLastNotify>=15000){ watchLastNotify=now; toastLocation(wd,shortName(wd)+" — location update"); }
+
+      body {
+        background-color: black;
+        font-family: Arial, sans-serif;
+        font-size: 20px;
+        color: orange;
+        margin: 0;
       }
-    }
-    updateLabels();
-  }
-  function updateLabels(){
-    document.querySelectorAll("[data-rel]").forEach(function(el){
-      var d=deviceById(el.getAttribute("data-rel")); if(d) el.textContent=relTime(d.lastReport);
-    });
-    document.querySelectorAll("[data-pill]").forEach(function(el){
-      var d=deviceById(el.getAttribute("data-pill")); if(!d) return;
-      var f=freshness(d.lastReport); el.textContent=f.label; el.className="pill pill-"+f.cls;
-    });
-    document.querySelectorAll("[data-coord]").forEach(function(el){
-      var d=deviceById(el.getAttribute("data-coord")); if(d) el.textContent=d.lastReport?coordStr(d):"no fix yet";
-    });
-    document.querySelectorAll("[data-batt]").forEach(function(el){
-      var d=deviceById(el.getAttribute("data-batt")); if(d) el.textContent=(d.battery!=null?Math.round(d.battery)+"%":"—");
-    });
-    document.querySelectorAll("[data-gmaps]").forEach(function(a){
-      var d=deviceById(a.getAttribute("data-gmaps")); if(d) a.href=gmapsUrl(d);
-    });
-    // refresh marker live-state without rebuilding (skip while dragging)
-    if(!dragId){
-      document.querySelectorAll("[data-marker]").forEach(function(g){
-        var d=deviceById(g.getAttribute("data-marker")); if(!d) return;
-        var hasHalo=g.querySelector(".halo"); var live=freshness(d.lastReport).key==="live";
-        if(live&&!hasHalo || !live&&hasHalo){ renderMarkers(); }
-      });
-    }
-  }
 
-  // ---------- render routing ----------
-  function renderPanelOnly(){
-    if(tab==="rep") return renderReporter();
-    if(detailId) return renderDetail();
-    return renderDash();
-  }
-  function renderAll(){ renderMarkers(); renderPanelOnly(); }
-  function save(){ safeSet(store); }
+      /* Header nav: two links close together, centered on the page */
+      .nav {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 28px;
+        padding: 24px 0;
+        background-color: rgba(0, 0, 0, 0.85);
+      }
 
-  function setTab(t){
-    tab=t; detailId=null; watchOn=false;
-    document.getElementById("tabDash").setAttribute("aria-selected",t==="dash");
-    document.getElementById("tabRep").setAttribute("aria-selected",t==="rep");
-    setMapHint();
-    renderAll();
-  }
-  function setMapHint(){
-    var h=document.getElementById("mapHint"); if(!h) return;
-    if(tab==="rep"){ h.textContent="Drag the orange marker to move"; return; }
-    if(detailId){ var d=deviceById(detailId); h.textContent=d?("Tracking "+shortName(d)):"Live positions"; return; }
-    h.textContent="Live positions";
-  }
+      .nav a {
+        color: orange;
+        font-size: 20px;
+        font-weight: bold;
+        text-decoration: none;
+      }
 
-  function showApp(){
-    view="app";
-    document.getElementById("loginView").hidden=true;
-    document.getElementById("appView").hidden=false;
-    document.getElementById("topbar").hidden=false;
-    document.getElementById("acctEmail").textContent=store.current;
-    buildBase(); setTab("dash");
-  }
-  function showLogin(){
-    view="login";
-    document.getElementById("appView").hidden=true;
-    document.getElementById("topbar").hidden=true;
-    document.getElementById("loginView").hidden=false;
-  }
+      .nav a:hover {
+        color: white;
+      }
 
-  // ---------- login ----------
-  function login(email){
-    email=email.trim().toLowerCase();
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ document.getElementById("loginErr").textContent="Enter a valid email address."; return; }
-    document.getElementById("loginErr").textContent="";
-    if(!store.accounts[email]) store.accounts[email]=seed();
-    store.current=email; save(); showApp();
-  }
+      /* Hero section with real arcade machine background photo */
+      .hero {
+        position: relative;
+        height: 70vh;
+        min-height: 400px;
+        background-image:
+          linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)),
+          url("https://images.unsplash.com/photo-1511512578047-dfb367046420?fm=jpg&q=80&w=2000&auto=format&fit=crop");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-  // ---------- wire up ----------
-  document.getElementById("loginForm").addEventListener("submit",function(e){e.preventDefault();login(document.getElementById("email").value)});
-  document.getElementById("signout").addEventListener("click",function(){store.current=null;save();reporting=false;autoMove=false;showLogin()});
-  document.getElementById("tabDash").addEventListener("click",function(){setTab("dash")});
-  document.getElementById("tabRep").addEventListener("click",function(){setTab("rep")});
-  document.getElementById("demoClose").addEventListener("click",function(){document.getElementById("demoStrip").hidden=true});
+      .hero h1 {
+        font-size: 80px;
+        letter-spacing: 6px;
+        color: orange;
+        text-shadow: 0 0 20px rgba(255, 140, 0, 0.8), 0 0 4px black;
+        margin: 0;
+        text-align: center;
+      }
 
-  // prefill + auto-resume
-  var emailInput=document.getElementById("email");
-  if(store.current && store.accounts[store.current]){ showApp(); }
-  else { emailInput.value="bhala i email yakho voetsek (umzekelo: you@gmail.com)"; showLogin(); }
+      .content {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        text-align: center;
+      }
 
-  setInterval(tick,1000);
-})();
-</script>
+      p {
+        color: orange;
+        font-size: 20px;
+        line-height: 1.5;
+      }
+
+      .gallery {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 0 20px 40px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 20px;
+      }
+
+      .gallery img {
+        width: 100%;
+        max-width: 300px;
+        display: block;
+        border-radius: 8px;
+      }
+
+      .go-links {
+        text-align: center;
+        padding-bottom: 40px;
+      }
+
+      .go-links a {
+        color: orange;
+        font-size: 20px;
+        text-decoration: none;
+      }
+
+      .go-links a:hover {
+        color: white;
+      }
+    </style>
+  </head>
+  <body>
+
+    <header class="nav">
+      <a href="https://bitcoinekasi.com" target="_blank">Bitcoin Ekasi</a>
+      <a href="https://pay.btckasi.com/apps/sf5gbPjWDPWWa2zVRk6cm8Uf6ma/pos" target="_blank">Arcade Machine</a>
+    </header>
+
+    <section class="hero">
+      <h1>NOSTALGIA</h1>
+    </section>
+
+    <section class="content">
+      <p>
+        Remember your old memories, from when you were a kid.
+        The arcade machine is retrofitted with Bitcoin payment —
+        a new way to pay to play a game without using any coins.
+        ¡Gracias!
+      </p>
+    </section>
+
+    
+    <section class="gallery">
+      <img src="https://images.unsplash.com/photo-1757444838044-d9dcb1bb3017?fm=jpg&q=70&w=800&auto=format&fit=crop" alt="Vintage arcade machine glowing with neon lights">
+      <img src="https://images.unsplash.com/photo-1534620780923-1ce0db377c3f?fm=jpg&q=70&w=800&auto=format&fit=crop" alt="Row of retro arcade machines in a dark arcade">
+      <img src="https://images.unsplash.com/photo-1498736297812-3a08021f206f?fm=jpg&q=70&w=800&auto=format&fit=crop" alt="Two arcade cabinets side by side glowing with neon">
+    </section>
+
+  </body>
+</html>
